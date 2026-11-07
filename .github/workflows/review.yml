@@ -1,0 +1,22 @@
+name: Telegram PR & Security Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send PR to Telegram Reviewer Agent
+        env:
+          REVIEWER_ENDPOINT: ${{ secrets.REVIEWER_WEBHOOK_URL }} # e.g. https://your-domain.com/review
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          echo "Dispatching PR review for: $PR_URL"
+          
+          curl -s -X POST "$REVIEWER_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\": \"$PR_URL\", \"chat_id\": \"$TELEGRAM_CHAT_ID\"}"
+

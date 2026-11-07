@@ -1,0 +1,47 @@
+# Switch AI Gateway Configuration
+# Bridges Telegram Channel directly to the FastAPI PR Reviewer Agent
+
+version: "1.0"
+
+gateway:
+  name: "switch-pr-reviewer-gateway"
+  port: 3000
+  host: "0.0.0.0"
+  log_level: "info"
+
+# -----------------------------------------------------------------------------
+# Collaboration Bridges (Inbound Communication Channels)
+# -----------------------------------------------------------------------------
+bridges:
+  telegram:
+    enabled: true
+    token: "${TELEGRAM_BOT_TOKEN}"
+    # Mode can be 'polling' for local development or 'webhook' for production
+    mode: "polling"
+    drop_pending_updates: true
+    routing:
+      # Direct all incoming messages to the Reviewer Agent webhook
+      default_agent: "pr-reviewer"
+      commands:
+        - command: "/review"
+          agent: "pr-reviewer"
+        - command: "/help"
+          agent: "pr-reviewer"
+
+# -----------------------------------------------------------------------------
+# Registered AI Agents (Backends)
+# -----------------------------------------------------------------------------
+agents:
+  - id: "pr-reviewer"
+    name: "Telegram PR & Code Reviewer Agent"
+    description: "Automated Pull Request and Code Reviewer powered by Google Gemini 1.5 Flash"
+    endpoint: "${SWITCH_AGENT_WEBHOOK_URL:-http://localhost:8000/webhook}"
+    method: "POST"
+    timeout_seconds: 60
+    headers:
+      Content-Type: "application/json"
+      X-Switch-Source: "telegram-bridge"
+    retry:
+      max_attempts: 2
+      backoff_multiplier: 1.5
+

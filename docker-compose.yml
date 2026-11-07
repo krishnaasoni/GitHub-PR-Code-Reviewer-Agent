@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. FastAPI GitHub PR & Code Reviewer Worker
+  # ---------------------------------------------------------------------------
+  reviewer-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-pr-reviewer-agent
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - MAX_DIFF_CHARS=${MAX_DIFF_CHARS:-40000}
+      - PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - switch-network
+
+  # ---------------------------------------------------------------------------
+  # 2. Switch AI Gateway (Telegram Channel Adapter)
+  # ---------------------------------------------------------------------------
+  switch-gateway:
+    image: ghcr.io/sandbox-quantum/switch:latest
+    container_name: switch-ai-gateway
+    restart: unless-stopped
+    ports:
+      - "${SWITCH_GATEWAY_PORT:-3000}:3000"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - SWITCH_AGENT_WEBHOOK_URL=http://reviewer-agent:8000/webhook
+      - SWITCH_LOG_LEVEL=info
+    depends_on:
+      reviewer-agent:
+        condition: service_healthy
+    networks:
+      - switch-network
+
+networks:
+  switch-network:
+    driver: bridge
+
